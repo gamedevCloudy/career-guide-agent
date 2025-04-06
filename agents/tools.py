@@ -14,10 +14,19 @@ from langchain_core.documents import Document
 
 load_dotenv()
 
-APIFY_TOKEN=os.environ['APIFY_API_TOKEN']
-LINKEDIN_COOKIE=json.loads(os.environ['LINKEDIN_COOKIE'])
+APIFY_TOKEN=os.getenv('APIFY_API_TOKEN')
+if not APIFY_TOKEN: 
+    raise ValueError("Apify API key hasn't been set in environment variables ")
+
+try:
+    LINKEDIN_COOKIE = json.loads(os.getenv('LINKEDIN_COOKIE', '{}'))
+except json.JSONDecodeError:
+    raise ValueError("Invalid LINKEDIN_COOKIE format. Must be a valid JSON string.")
+
 repl = PythonREPL()
 apify = ApifyWrapper(apify_api_token=APIFY_TOKEN)
+
+
 search_tool = DuckDuckGoSearchRun()
 
 @tool
@@ -47,7 +56,13 @@ def scrape_linkedin_profile(profile_url: str) -> dict:
     Returns:
         dict: The scraped profile data.
     """
+    # check if link is valid 
+
+    if not profile_url or not profile_url.startswith('https://www.linkedin.com/in/'):
+        raise ValueError("Invalid LinkedIn profile URL. Must start with 'https://www.linkedin.com/in/'")
+    
     # Prepare the input for the Actor
+
     actor_input = {
         "urls": [profile_url],
         "cookie": LINKEDIN_COOKIE,
@@ -79,11 +94,10 @@ def scrape_linkedin_profile(profile_url: str) -> dict:
 
 
 
+# expose tools
+__all__ = [
+    'python_repl_tool', 
+    'scrape_linkedin_profile', 
+    'search_tool'
+]
 
-# Using the Profile data loading tool 
-# profile_url = "https://www.linkedin.com/in/aayush-chaudhary-2b7b99208/"
-# profile_data = scrape_linkedin_profile.invoke(profile_url)
-
-
-info = search_tool.invoke("who is DemonKingSwarn")
-print(info)

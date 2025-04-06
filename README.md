@@ -4,6 +4,8 @@
 
 built with: LangGraph
 
+requires: python v3.11 or greater
+
 ---
 
 Tools:

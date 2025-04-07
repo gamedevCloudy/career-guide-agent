@@ -1,43 +1,30 @@
+# agents/career_guidance_agent.py
 from langchain_google_vertexai import ChatVertexAI
-from langchain_core.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
 from langgraph.prebuilt import create_react_agent
-from tools import basic_search_tool
-from utils import State, make_system_prompt
 
-def create_career_guidance_agent():
-    model = ChatVertexAI(model="gemini-2.0-flash-001")
-    
-    def career_guidance_node(state: State):
-        """
-        Provide career counseling and skill gap analysis
-        """
-        profile_data = state.get('profile_data')
-        target_role = state.get('target_role')
-        
-        if not profile_data or not target_role:
-            return {"messages": [{"role": "system", "content": "Missing profile data or target role."}]}
-        
-        # Search for skill requirements and learning resources
-        skill_search = basic_search_tool.invoke(f"{target_role} required skills and learning paths")
-        
-        # Career guidance analysis
-        system_prompt = make_system_prompt(
-            " Provide comprehensive career counseling based on the profile and target role. "
-            "Identify missing skills, suggest learning resources, and outline potential career paths."
-        )
-        
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Profile Data: {profile_data}\nTarget Role: {target_role}\nSkill Research: {skill_search}"}
-        ]
-        
-        career_guidance = model.invoke(messages)
-        
-        return {
-            "messages": [{"role": "assistant", "content": career_guidance.content}]
-        }
-    
-    return career_guidance_node
+from .tools import basic_search_tool # Only needs search
+from .utils import make_agent_system_prompt, AgentState
 
-# Create the agent
-career_guidance_agent = create_career_guidance_agent()
+# Tools specific to this agent
+guidance_tools = [basic_search_tool]
+
+def create_career_guidance_agent(llm: ChatVertexAI):
+    """Creates the Career Guidance Agent Executor."""
+    system_prompt = make_agent_system_prompt(
+        "Provide comprehensive career guidance based on the user's profile analysis and job fit assessment (available in the conversation history). "
+        "Use the search tool to find information on career paths, required skills for advancement, and potential learning resources (courses, certifications, communities) relevant to the target role and identified skill gaps. "
+        "Synthesize the information from the history and your research to: "
+        "1. Outline potential career trajectories from the user's current state towards the target role and beyond. "
+        "2. Suggest concrete next steps, including skill development and networking strategies. "
+        "3. Recommend specific learning resources. "
+        "If prior analysis (profile, job fit) is missing or insufficient in the conversation history, state that you cannot provide full guidance."
+    )
+    agent_executor = create_react_agent(llm, guidance_tools, messages_modifier=system_prompt)
+    return agent_executor
+
+def career_guidance_node(state: AgentState, agent: callable, name: str):
+    """Node function to execute the career guidance agent."""
+    print(f"--- Executing {name} ---")
+    result = agent.invoke(state)
+    return {"messages": result["messages"]}

@@ -1,57 +1,56 @@
+# agents/profile_analysis_agent.py
 from langchain_google_vertexai import ChatVertexAI
-from langchain_core.tools import tool 
+from langchain_core.prompts import ChatPromptTemplate
 from langgraph.prebuilt import create_react_agent
+from langchain_core.messages import SystemMessage, HumanMessage
+
+from typing import List, Optional, Literal
+from langgraph.types import Command
+
+
 from tools import scrape_linkedin_profile, basic_search_tool
-from utils import State, make_system_prompt
+from utils import make_agent_system_prompt, AgentState
 
-from pydantic import BaseModel, Field
+# Tools specific to this agent
+profile_tools = [scrape_linkedin_profile, basic_search_tool]
+
+system_prompt = make_agent_system_prompt(
+        "Analyze a given LinkedIn profile URL. "
+        "First, use the 'scrape_linkedin_profile' tool to fetch the profile data. "
+        "It has been pre-configured with required API keys, can be called directly"
+        "Use Search tool to look up things associated with profile - like best practices."
+        "If scraping is successful, analyze the content for strengths, weaknesses, gaps, and inconsistencies across all sections (Summary, Experience, Education, Skills, etc.). "
+        "If scraping fails or no URL is provided in the history, state that you cannot proceed without valid profile data. "
+        "You can use the search tool to look up general best practices for LinkedIn profiles if needed for comparison."
+    )
+
+llm = ChatVertexAI(model="gemini-2.0-flash")
+
+profile_analysis_agent = create_react_agent(llm, tools=profile_tools, prompt=system_prompt)
 
 
-class SectionAnalysis(BaseModel): 
-    section: str = Field(description="name of the profile section")
-    analysis: str = Field(description="a clear, descriptive and actionable analysis of the profile")
+def profile_analysis_node(state: AgentState, agent: callable, name: str):
+    """Node function to execute the profile analysis agent."""
+    print(f"--- Executing {name} ---")
+    # The agent requires the messages list.
+    result = agent.invoke(state)
 
-def create_profile_analysis_agent(): 
+    return {"messages": result["messages"]}
+
+def profile_analysis_node(state: AgentState) -> Command[Literal['Supervisor']]: 
+    result = profile_analysis_agent.invoke(state)
     
-    model = ChatVertexAI(model_name="gemini-2.0-flash-001")
+    print(result)
+    return Command(
+          update={
+            "messages": [
+                HumanMessage(content=result["messages"][-1].content, name="CareerAdvisor")
+            ]
+        },
+        # We want our workers to ALWAYS "report back" to the supervisor when done
+        goto="Supervisor",
+    )
 
-    def profile_analysis_node(state: State): 
-        """
-        Analyze LinkedIn profile for gaps and inconsistances 
-        """
-        profile_url = state.get('profile_url')
-
-        if not profile_url: 
-            return {"messeges": [{"role": "system", "content": "No LinkedIn profile URL provided"}]}
-        
-        profile_data = scrape_linkedin_profile(profile_url)
-
-        system_prompt = make_system_prompt(
-            """
-            Perform a comprehensive analysis of LinkedIn profile
-            Identify strengths, weaknesses, gaps and inconsistancies in all sections. 
-            
-            class SectionAnalysis(BaseModel): 
-                section: str = Field(description="name of the profile section")
-                analysis: str = Field(description="a clear, descriptive and actionable analysis of the profile")
-
-            return: list[SectionAnalysis]
-            """
-        )
-
-        messages = [
-            {"role": "system", "content": system_prompt}, 
-            {"role": "user", "content": f"Analyze this LinkedIn Profile: {profile_data}"}
-        ]
-
-        analysis = model.invoke(messages)
-
-        return {
-            "messages": [{"role": "assistant", 
-                          "content": analysis.content
-                          }]
-        }
-
-    return profile_analysis_node
-
-profile_analysis_agent = create_profile_analysis_agent()
+__all__ = [
+    'profile_analysis_node'
+]

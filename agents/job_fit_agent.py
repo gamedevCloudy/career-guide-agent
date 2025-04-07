@@ -1,62 +1,55 @@
+# agents/job_fit_agent.py
 from langchain_google_vertexai import ChatVertexAI
-from langchain_core.tools import tool 
+
 from langgraph.prebuilt import create_react_agent
-from tools import basic_search_tool
-from utils import State, make_system_prompt
+from langchain_core.messages import  HumanMessage
 
-def create_job_fit_agent(): 
-    model = ChatVertexAI(model_name="gemini-2.0-flash-001")
+from typing import List, Optional, Literal
+from langgraph.types import Command
 
-    def job_fit_node(state: State): 
-        """
-        Analzye job fit and generate improvement suggesitions 
-        """
+from tools import basic_search_tool # Only needs search
+from utils import make_agent_system_prompt, AgentState
 
-        target_role = state.get('target_role')
-        profile_data = state.get('profile_data')
+# Tools specific to this agent
+job_fit_tools = [basic_search_tool]
 
-        if not profile_data or not target_role:
-            return {"messages": [{"role": "system", "content": "Missing profile data or target role."}]}
-                    
-        job_description_search = basic_search_tool.invoke(f"{target_role} job description industry standards")
 
-        system_prompt = make_system_prompt(
-            """<goal>Compare and contrast the LinkedIn profile of a with the target job role</goal>
-            <tasks>
-            - generate a match score out of 10 
-            - identify skill gaps the user and suggest specific improvements
-            - response should be in depth focusing on various aspects of the career
-            - take into account the current experience level when analysing 
-            - include a potential career trajectory with your reposne 
-            eg. target: Tech Lead 
-            and if user is still a student, then suggest every step in middle ie SDE-1 to SDE 5, then gaining expertice in technical project management, going niche at current role, this will also require no job hopping etc.  
-            </tasks>
 
-            Note: be detailed
 
-            output: 
+llm = ChatVertexAI(model_name='gemini-2.0-flash-001')
 
-            class JobFit: 
-                feedback: str 
-            
-            return:  JobFit
-            """
-        )
+system_prompt = make_agent_system_prompt(
+       "Analyze the fit between the user's profile data (available in the conversation history, likely provided by the ProfileAnalyzer) and a specified target job role. "
+       "Use the search tool to find standard job descriptions, required skills, and industry expectations for the target role. "
+       "Compare the profile data against these standards. "
+       "Provide a detailed analysis including: "
+       "1. A qualitative assessment of the fit (e.g., Strong Match, Good Match, Needs Improvement). "
+       "2. Identification of key skill gaps. "
+       "3. Suggestions for specific improvements to the profile or skills needed to bridge the gap. "
+       "4. Consider the user's current experience level when providing feedback and suggesting career steps. "
+       "If profile data is missing or insufficient in the conversation history, state that you cannot perform the analysis."
+    )
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Profile Data: {profile_data}\nTarget Role: {target_role}\nJob Description Search: {job_description_search}"}
-        ]
-        
-        job_fit_analysis = model.invoke(messages)
-        
-        return {
-            "messages": [{"role": "assistant", "content": job_fit_analysis.content}]
-        }
+job_fit_agent = create_react_agent(llm, tools=job_fit_tools, prompt=system_prompt)
+
+
+
+
+def job_fit_node(state: AgentState) -> Command[Literal['Supervisor']]: 
+    result = job_fit_agent.invoke(state)
+    print(result)
+    return Command(
+         
+        update={
+            "messages": [
+                HumanMessage(content=result["messages"][-1].content, name="JobFitAnalyzer")
+            ]
+        },
+        # We want our workers to ALWAYS "report back" to the supervisor when done
+        goto="Supervisor",
+    )
     
-    return job_fit_node
 
-
-job_fit_agent = create_job_fit_agent()
-
-        
+__all__ = [
+    'job_fit_node'
+]

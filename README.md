@@ -16,6 +16,14 @@ Tools:
 
 ---
 
+```.env
+DATABASE_URI
+LINKEDIN_COOKIE
+APIFY_API_KEY
+```
+
+---
+
 Utility:
 
 - Cookie Editor - Chrome Extension - Export LinkedIn Cookie as JSON

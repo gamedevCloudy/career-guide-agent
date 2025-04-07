@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Career Optimization Chat</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-xl p-6 bg-white rounded-2xl shadow-xl">
+      <h1 class="text-2xl font-semibold mb-4 text-center">
+        Career Optimization Assistant
+      </h1>
+
+      <form
+        hx-post="/analyze"
+        hx-target="#chat-box"
+        hx-swap="beforeend"
+        class="space-y-4"
+      >
+        <input
+          name="profile_url"
+          type="url"
+          required
+          placeholder="LinkedIn Profile URL"
+          class="w-full px-4 py-2 border rounded-xl focus:ring focus:outline-none"
+        />
+        <input
+          name="target_role"
+          type="text"
+          required
+          placeholder="Target Role"
+          class="w-full px-4 py-2 border rounded-xl focus:ring focus:outline-none"
+        />
+        <button
+          type="submit"
+          class="w-full bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition"
+        >
+          Analyze
+        </button>
+      </form>
+
+      <div id="chat-box" class="mt-6 space-y-3"></div>
+    </div>
+
+    <template id="message-template">
+      <div class="bg-gray-100 p-3 rounded-xl text-gray-800 shadow-sm"></div>
+    </template>
+
+    <script>
+      document.body.addEventListener("htmx:afterSwap", function (evt) {
+        if (evt.detail.target.id === "chat-box") {
+          const scrollTarget = document.getElementById("chat-box");
+          scrollTarget.scrollTop = scrollTarget.scrollHeight;
+        }
+      });
+    </script>
+  </body>
+</html>

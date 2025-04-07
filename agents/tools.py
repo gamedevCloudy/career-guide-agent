@@ -15,8 +15,8 @@ from langchain_core.documents import Document
 
 load_dotenv()
 
-APIFY_TOKEN=os.getenv('APIFY_API_KEY') # Renamed for clarity, ensure .env matches
-if not APIFY_TOKEN:
+APIFY_API_TOKEN=os.getenv('APIFY_API_TOKEN') # Renamed for clarity, ensure .env matches
+if not APIFY_API_TOKEN:
     raise ValueError("APIFY_API_KEY hasn't been set in environment variables ")
 
 try:
@@ -27,7 +27,7 @@ except json.JSONDecodeError:
     raise ValueError(f"Invalid LINKEDIN_COOKIE format. Must be a valid JSON string. Received: {linkedin_cookie_str}")
 
 repl = PythonREPL()
-apify = ApifyWrapper(apify_api_token=APIFY_TOKEN)
+apify = ApifyWrapper(apify_api_token=APIFY_API_TOKEN)
 
 
 basic_search_tool = DuckDuckGoSearchRun()
@@ -102,3 +102,9 @@ __all__ = [
     'basic_search_tool',
     'all_tools' # Export the list too
 ]
+
+
+
+out = scrape_linkedin_profile.invoke("https://www.linkedin.com/in/aayush-chaudhary-2b7b99208/")
+
+print(out)

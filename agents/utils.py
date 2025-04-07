@@ -26,6 +26,7 @@ class AgentState(TypedDict):
     # Add a field for the router to decide the next step
     next_agent: Optional[AgentName]
 
+
 def create_sqlite_memory():
     try:
         # Ensure the directory exists if DATABASE_URI includes a path

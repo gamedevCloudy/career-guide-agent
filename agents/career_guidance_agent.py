@@ -1,17 +1,22 @@
 # agents/career_guidance_agent.py
 from langchain_google_vertexai import ChatVertexAI
-from langchain_core.prompts import ChatPromptTemplate
+
+from langchain_core.messages import HumanMessage
+
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import SystemMessage
-from .tools import basic_search_tool # Only needs search
-from .utils import make_agent_system_prompt, AgentState
+
+from tools import basic_search_tool # Only needs search
+from utils import make_agent_system_prompt, AgentState
+
+from typing import Literal
+from langgraph.types import Command
 
 # Tools specific to this agent
 guidance_tools = [basic_search_tool]
 
-def create_career_guidance_agent(llm: ChatVertexAI):
-    """Creates the Career Guidance Agent Executor."""
-    system_prompt = make_agent_system_prompt(
+llm = ChatVertexAI(model_name="gemini-2.0-flash")
+
+system_prompt = make_agent_system_prompt(
         "Provide comprehensive career guidance based on the user's profile analysis and job fit assessment (available in the conversation history). "
         "Use the search tool to find information on career paths, required skills for advancement, and potential learning resources (courses, certifications, communities) relevant to the target role and identified skill gaps. "
         "Synthesize the information from the history and your research to: "
@@ -19,13 +24,23 @@ def create_career_guidance_agent(llm: ChatVertexAI):
         "2. Suggest concrete next steps, including skill development and networking strategies. "
         "3. Recommend specific learning resources. "
         "If prior analysis (profile, job fit) is missing or insufficient in the conversation history, state that you cannot provide full guidance."
-    )
-    llm_with_sys_prompt = llm.bind(system_message=SystemMessage(content=system_prompt))
-    agent_executor = create_react_agent(llm_with_sys_prompt, guidance_tools)
-    return agent_executor
+)
 
-def career_guidance_node(state: AgentState, agent: callable, name: str):
-    """Node function to execute the career guidance agent."""
-    print(f"--- Executing {name} ---")
-    result = agent.invoke(state)
-    return {"messages": result["messages"]}
+career_guidance_agent  = create_react_agent(llm, tools=guidance_tools, prompt=system_prompt)
+
+def career_guidance_node(state: AgentState) -> Command[Literal['Supervisor']]: 
+    result = career_guidance_agent.invoke(state)
+    print(result)
+    return Command(
+        update={
+            "messages": [
+                HumanMessage(content=result["messages"][-1].content, name="SareerAdvisor")
+            ]
+        },
+        # We want our workers to ALWAYS "report back" to the supervisor when done
+        goto="Supervisor",
+    )
+
+__all__ = [
+    'guidance_node'
+]

@@ -17,6 +17,7 @@ DATABASE_URI=os.getenv('DATABASE_URI')
 class State(TypedDict):
     messages: Annotated[list, add_messages]
     name: str
+    profile_url: str
     profile_data: Document
 
 def create_sqlite_memory():

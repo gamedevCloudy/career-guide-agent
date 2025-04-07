@@ -102,9 +102,3 @@ __all__ = [
     'basic_search_tool',
     'all_tools' # Export the list too
 ]
-
-
-
-out = scrape_linkedin_profile.invoke("https://www.linkedin.com/in/aayush-chaudhary-2b7b99208/")
-
-print(out)

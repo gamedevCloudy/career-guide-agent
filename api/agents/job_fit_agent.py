@@ -7,8 +7,8 @@ from langchain_core.messages import  HumanMessage
 from typing import List, Optional, Literal
 from langgraph.types import Command
 
-from tools import basic_search_tool # Only needs search
-from utils import make_agent_system_prompt, AgentState
+from agents.tools import basic_search_tool # Only needs search
+from agents.utils import make_agent_system_prompt, AgentState
 
 # Tools specific to this agent
 job_fit_tools = [basic_search_tool]

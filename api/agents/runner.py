@@ -10,11 +10,11 @@ from langchain_google_vertexai import ChatVertexAI
 
 
 
-from utils import AgentState, memory, SUPERVISOR_SYSTEM_PROMPT, AgentName
-from tools import all_tools # Import the list of all tools
-from profile_analysis_agent import profile_analysis_node
-from job_fit_agent import job_fit_node
-from career_guidance_agent import career_guidance_node
+from agents.utils import AgentState, memory, SUPERVISOR_SYSTEM_PROMPT, AgentName
+from agents.tools import all_tools # Import the list of all tools
+from agents.profile_analysis_agent import profile_analysis_node
+from agents.job_fit_agent import job_fit_node
+from agents.career_guidance_agent import career_guidance_node
 
 from typing import Literal
 from langgraph.types import Command

@@ -1,23 +1,31 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, Cookie
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from agents import run_career_optimization
+from uuid import uuid4
+from agents.runner import run_career_conversation_step
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="api/static"), name="static")
 
 templates = Jinja2Templates(directory="templates")
 
+THREAD_COOKIE_NAME = "thread_id"
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("chat.html", {"request": request})
+    thread_id = request.cookies.get(THREAD_COOKIE_NAME)
+    if not thread_id:
+        thread_id = str(uuid4())
+    response = templates.TemplateResponse("chat.html", {"request": request, "thread_id": thread_id})
+    response.set_cookie(key=THREAD_COOKIE_NAME, value=thread_id)
+    return response
 
-@app.post("/analyze", response_class=JSONResponse)
-async def analyze_profile(
-    profile_url: str = Form(...),
-    target_role: str = Form(...),
-    thread_id: int = Form(default=1)
+@app.post("/chat", response_class=JSONResponse)
+async def chat(
+    request: Request,
+    message: str = Form(...),
+    thread_id: str = Cookie(None)
 ):
-    final_state = run_career_optimization(profile_url, target_role, thread_id)
-    summary = final_state.values["messages"][-1].content  # Last message from graph
-    return {"response": summary}
+    bot_reply = run_career_conversation_step(user_input=message, thread_id=thread_id)
+    return {"user": message, "bot": bot_reply}

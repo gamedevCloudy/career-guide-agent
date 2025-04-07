@@ -1,7 +1,7 @@
 # agents/career_guidance_agent.py
 from langchain_google_vertexai import ChatVertexAI
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage
 
 from langgraph.prebuilt import create_react_agent
 
@@ -34,7 +34,7 @@ def career_guidance_node(state: AgentState) -> Command[Literal['Supervisor']]:
     return Command(
         update={
             "messages": [
-                HumanMessage(content=result["messages"][-1].content, name="SareerAdvisor")
+                AIMessage(content=result["messages"][-1].content, name="CareerAdvisor")
             ]
         },
         # We want our workers to ALWAYS "report back" to the supervisor when done

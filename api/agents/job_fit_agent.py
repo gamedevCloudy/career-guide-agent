@@ -2,7 +2,7 @@
 from langchain_google_vertexai import ChatVertexAI
 
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import  HumanMessage
+from langchain_core.messages import  AIMessage
 
 from typing import List, Optional, Literal
 from langgraph.types import Command
@@ -42,7 +42,7 @@ def job_fit_node(state: AgentState) -> Command[Literal['Supervisor']]:
          
         update={
             "messages": [
-                HumanMessage(content=result["messages"][-1].content, name="JobFitAnalyzer")
+                AIMessage(content=result["messages"][-1].content, name="JobFitAnalyzer")
             ]
         },
         # We want our workers to ALWAYS "report back" to the supervisor when done

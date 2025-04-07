@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from typing import TypedDict
 
 from langgraph.graph import StateGraph, START, END
-from langchain_core.messages import  HumanMessage
+from langchain_core.messages import  SystemMessage, HumanMessage, AIMessage
 from langchain_google_vertexai import ChatVertexAI
 
 
@@ -30,31 +30,61 @@ load_dotenv()
 PROFILE_ANALYZER = "ProfileAnalyzer"
 JOB_FIT_ANALYZER = "JobFitAnalyzer"
 CAREER_ADVISOR = "CareerAdvisor"
+COUNCELLER = "Counceller"
 SUPERVISOR = "Supervisor"
 
+MAX_CONVERSATION_TURNS=5
+
 # List of worker agent members
-members = [PROFILE_ANALYZER, JOB_FIT_ANALYZER, CAREER_ADVISOR]
+members = [PROFILE_ANALYZER, JOB_FIT_ANALYZER, CAREER_ADVISOR, COUNCELLER]
 
 
+def make_conversation_node(llm:BaseChatModel, members: list[str]) -> str: 
+    options = ['FINISH'] + members
 
-def make_supervisor_node(llm: BaseChatModel, members: list[str]) -> str:
-    options = ["FINISH"] + members
-    system_prompt = (
-        "You are a supervisor tasked with managing a conversation between the"
-        f" following workers: {members}.",
-        "Given the following user request,"
-        " respond with the worker to act next. Each worker will perform a"
-        " task and respond with their results and status. When finished,"
-        " respond with FINISH."
-    )
+    system_prompt = """
+    <role>Counseller</role>
+    <name>Ria</name>
+
+    <goal>help our clients and users optimize thier profile and provide career guidance</goal>
+
+    <team>
+    {members}
+    </team>
+
+    <task>
+    <first_message>
+    - greet the Client 
+    - ask their name
+    - ask them their target role
+    - ask the client for LinkedIn Profile URL 
+    </first_message>
+    - give them basics details what you can do with your team. 
+    - communicate with {members} to get detials from the team regarding our client 
+    - you can get their profile details, profile analysis job fit and career guidance tips 
+    </task>
+
+    <tone>
+    - friendly and human like 
+    - should be hopeful and try to help client most 
+    </tone>
+
+    <tips>
+    - go in depth
+    - do not be generic, be specific and provide correct guidance. 
+    </tips>
+    """
 
     class Router(TypedDict):
         """Worker to route to next. If no workers needed, route to FINISH."""
 
         next: Literal[*options]
 
-    def supervisor_node(state: AgentState) -> Command[Literal[*members, "__end__"]]:
+    def counceller_node(state: AgentState) -> Command[Literal[*members, "__end__"]]:
         """An LLM-based router."""
+
+        messages = state["messages"]
+        
         messages = [
             {"role": "system", "content": system_prompt},
         ] + state["messages"]
@@ -64,30 +94,120 @@ def make_supervisor_node(llm: BaseChatModel, members: list[str]) -> str:
             goto = END
 
         return Command(goto=goto, update={"next": goto})
+    
+    return counceller_node
+
+# agents/runner.py (inside make_supervisor_node)
+
+def make_supervisor_node(llm: BaseChatModel, members: list[str], counceller_name: str) -> callable:
+
+    options = members + [counceller_name]
+
+    system_prompt = (
+        f"You are a supervisor managing a conversation between the following workers: {members}. "
+        f"The overall interaction is managed by the {counceller_name}."
+        "Given the conversation history, decide which worker should act next to fulfill the user's request. "
+        "Your options are: " + ", ".join(options) + "."
+        f"If the user's request requires analysis from a worker (e.g., {', '.join(members)}), route to that worker. "
+        f"If all necessary analysis from the workers is complete based on the conversation history, route back to the {counceller_name} to synthesize the information and respond to the user."
+        "Only choose one worker or the counceller per turn."
+
+    )
+
+
+    class Router(TypedDict):
+        """Route to the next worker or back to the Counceller."""
+        next: Literal[*options] 
+
+    def supervisor_node(state: AgentState) -> Command[Literal[*options]]:
+        print(f"\n--- Executing Supervisor ---")
+        print(f"Input State Keys: {state.keys()}")
+        last_message = state["messages"][-1]
+        print(f"Input Last Message ({type(last_message).__name__}): {last_message.content}")
+
+        # Prepare messages for the LLM
+        messages_for_llm = [
+            {"role": "system", "content": system_prompt},
+        ] + state["messages"] # Pass the actual message objects
+
+        # Invoke LLM with structured output
+        try:
+            response = llm.with_structured_output(Router).invoke(messages_for_llm)
+            goto = response["next"]
+            print(f"Supervisor Decision: Route to {goto}")
+
+            # Update the state with the decision for conditional edges
+            return Command(goto=goto, update={"next": goto})
+
+        except Exception as e:
+            print(f"Error in Supervisor LLM call: {e}")
+            # Fallback or error handling: maybe route to Counceller by default?
+            print(f"Supervisor Fallback: Routing to {counceller_name}")
+            return Command(goto=counceller_name, update={"next": counceller_name})
+
 
     return supervisor_node
 
 def create_career_optimization_graph():
-    """Creates the agentic graph with a supervisor."""
-    llm = ChatVertexAI(model="gemini-2.0-flash-001") # Using a capable model for supervisor
+    """Creates the agentic graph with a supervisor and counceller."""
+    llm = ChatVertexAI(model="gemini-2.0-flash-001")
 
+    # Create nodes
+    counceller_node = make_conversation_node(llm=llm, members=members)
     supervisor_node = make_supervisor_node(llm=llm, members=members)
     
     # Define the graph
     workflow = StateGraph(AgentState)
 
-    # Add Agent Nodes
+    # Add all nodes
+    workflow.add_node(COUNCELLER, counceller_node)
+    workflow.add_node(SUPERVISOR, supervisor_node)
     workflow.add_node(PROFILE_ANALYZER, profile_analysis_node)
     workflow.add_node(JOB_FIT_ANALYZER, job_fit_node)
     workflow.add_node(CAREER_ADVISOR, career_guidance_node)
-    workflow.add_node(SUPERVISOR, supervisor_node)
 
-    # Define Edges - Agents route back to supervisor
-    workflow.add_edge(START, SUPERVISOR)
+    # Define the workflow edges
+    # Start with Counceller
+    workflow.add_edge(START, COUNCELLER)
+
+    # Counceller can go to Supervisor or End
+    workflow.add_conditional_edges(
+        COUNCELLER, 
+        lambda state: state.get("next", "FINISH"),
+        {
+            "Supervisor": SUPERVISOR,
+            "FINISH": END
+        }
+    )
+
+    # Supervisor can route to specific agents
+    workflow.add_conditional_edges(
+        SUPERVISOR, 
+        lambda state: state.get("next", "FINISH"),
+        {
+            PROFILE_ANALYZER: PROFILE_ANALYZER,
+            JOB_FIT_ANALYZER: JOB_FIT_ANALYZER,
+            CAREER_ADVISOR: CAREER_ADVISOR,
+            "FINISH": END
+        }
+    )
+
+    # Agents must route back to Supervisor
+    workflow.add_edge(PROFILE_ANALYZER, SUPERVISOR)
+    workflow.add_edge(JOB_FIT_ANALYZER, SUPERVISOR)
+    workflow.add_edge(CAREER_ADVISOR, SUPERVISOR)
+
+    # Supervisor must route back to Counceller
+    workflow.add_edge(SUPERVISOR, "Counceller")
 
     # Compile the graph
     graph = workflow.compile(checkpointer=memory)
-
+    
+    
+    png_image = graph.get_graph().draw_mermaid_png()
+    with open("career_optimization_graph.png", "wb") as f:
+        f.write(png_image)
+    
     return graph
 
 def run_career_optimization(profile_url: str, target_role: str, thread_id: int = 1):
@@ -139,6 +259,42 @@ def run_career_optimization(profile_url: str, target_role: str, thread_id: int =
     print("--- Workflow Complete ---")
 
     return final_state
+
+
+def run_career_conversation_step(user_input: str, thread_id: str):
+    graph = create_career_optimization_graph()
+
+    # Pull conversation state from memory if it exists
+    config = {'configurable': {'thread_id': thread_id}}
+    
+    try:
+        # Attempt to get existing state
+        current_state = graph.get_state(config)
+        
+        # Add new user message to existing messages
+        current_state.values['messages'].append(HumanMessage(content=user_input))
+    except Exception:
+        # If no existing state, create initial state with system and user message
+        current_state = AgentState(
+            messages=[
+                HumanMessage(content=user_input)
+            ],
+            profile_data=None,
+            next_agent=None
+        )
+
+    # Stream the graph and process the entire conversation
+    final_state = None
+    for event in graph.stream(current_state, config=config):
+        final_state = event
+
+    # Retrieve the last AI message
+    for msg in reversed(graph.get_state(config).values['messages']):
+        if isinstance(msg, AIMessage):
+            return msg.content
+
+    return "I'm ready to help you with your career goals. Could you provide more details?"
+
 
 
 def main():

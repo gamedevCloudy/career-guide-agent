@@ -2,57 +2,85 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Career Optimization Chat</title>
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Career Assistant</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
-  <body class="bg-gray-100 flex items-center justify-center min-h-screen">
-    <div class="w-full max-w-xl p-6 bg-white rounded-2xl shadow-xl">
-      <h1 class="text-2xl font-semibold mb-4 text-center">
-        Career Optimization Assistant
-      </h1>
+  <body class="bg-gray-100 font-sans">
+    <div class="max-w-2xl mx-auto mt-10 p-4">
+      <h1 class="text-3xl font-bold mb-4 text-center">Career Assistant</h1>
+
+      <div
+        id="chat-box"
+        class="space-y-4 bg-white rounded-2xl p-4 h-[70vh] overflow-y-scroll border"
+      >
+        <!-- Messages will be appended here -->
+      </div>
 
       <form
-        hx-post="/analyze"
+        hx-post="/chat"
         hx-target="#chat-box"
         hx-swap="beforeend"
-        class="space-y-4"
+        class="mt-4 flex gap-2"
       >
         <input
-          name="profile_url"
-          type="url"
-          required
-          placeholder="LinkedIn Profile URL"
-          class="w-full px-4 py-2 border rounded-xl focus:ring focus:outline-none"
-        />
-        <input
-          name="target_role"
           type="text"
-          required
-          placeholder="Target Role"
-          class="w-full px-4 py-2 border rounded-xl focus:ring focus:outline-none"
+          name="message"
+          placeholder="Ask something..."
+          class="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring"
+          autocomplete="off"
         />
         <button
           type="submit"
-          class="w-full bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition"
+          class="bg-blue-500 text-white rounded-full px-4 py-2"
         >
-          Analyze
+          Send
         </button>
       </form>
-
-      <div id="chat-box" class="mt-6 space-y-3"></div>
     </div>
 
-    <template id="message-template">
-      <div class="bg-gray-100 p-3 rounded-xl text-gray-800 shadow-sm"></div>
+    <template id="user-template">
+      <div class="flex justify-end">
+        <div class="bg-blue-500 text-white p-3 rounded-2xl max-w-xs">
+          <p></p>
+        </div>
+        <img
+          src="/static/user.png"
+          alt="User"
+          class="w-8 h-8 rounded-full ml-2"
+        />
+      </div>
+    </template>
+
+    <template id="bot-template">
+      <div class="flex items-start">
+        <img
+          src="/static/bot.png"
+          alt="Bot"
+          class="w-8 h-8 rounded-full mr-2"
+        />
+        <div class="bg-gray-200 p-3 rounded-2xl max-w-xs">
+          <p></p>
+        </div>
+      </div>
     </template>
 
     <script>
-      document.body.addEventListener("htmx:afterSwap", function (evt) {
-        if (evt.detail.target.id === "chat-box") {
-          const scrollTarget = document.getElementById("chat-box");
-          scrollTarget.scrollTop = scrollTarget.scrollHeight;
-        }
+      document.body.addEventListener("htmx:afterOnLoad", (evt) => {
+        const data = evt.detail.xhr.response;
+        const userTemplate = document
+          .getElementById("user-template")
+          .content.cloneNode(true);
+        const botTemplate = document
+          .getElementById("bot-template")
+          .content.cloneNode(true);
+
+        userTemplate.querySelector("p").textContent = data.user;
+        botTemplate.querySelector("p").textContent = data.bot;
+
+        document.getElementById("chat-box").appendChild(userTemplate);
+        document.getElementById("chat-box").appendChild(botTemplate);
       });
     </script>
   </body>

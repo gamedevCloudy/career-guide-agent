@@ -2,7 +2,7 @@
 from langchain_google_vertexai import ChatVertexAI
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import AIMessage
 
 from typing import List, Optional, Literal
 from langgraph.types import Command
@@ -44,7 +44,7 @@ def profile_analysis_node(state: AgentState) -> Command[Literal['Supervisor']]:
     return Command(
           update={
             "messages": [
-                HumanMessage(content=result["messages"][-1].content, name="CareerAdvisor")
+                AIMessage(content=result["messages"][-1].content, name="ProfileAnalyzer")
             ]
         },
         # We want our workers to ALWAYS "report back" to the supervisor when done

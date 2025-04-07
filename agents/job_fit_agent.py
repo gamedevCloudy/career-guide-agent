@@ -1,62 +1,38 @@
+# agents/job_fit_agent.py
 from langchain_google_vertexai import ChatVertexAI
-from langchain_core.tools import tool 
+from langchain_core.prompts import ChatPromptTemplate
 from langgraph.prebuilt import create_react_agent
-from tools import basic_search_tool
-from utils import State, make_system_prompt
 
-def create_job_fit_agent(): 
-    model = ChatVertexAI(model_name="gemini-2.0-flash-001")
+from .tools import basic_search_tool # Only needs search
+from .utils import make_agent_system_prompt, AgentState
 
-    def job_fit_node(state: State): 
-        """
-        Analzye job fit and generate improvement suggesitions 
-        """
+# Tools specific to this agent
+job_fit_tools = [basic_search_tool]
 
-        target_role = state.get('target_role')
-        profile_data = state.get('profile_data')
+def create_job_fit_agent(llm: ChatVertexAI):
+    """Creates the Job Fit Analysis Agent Executor."""
+    system_prompt = make_agent_system_prompt(
+       "Analyze the fit between the user's profile data (available in the conversation history, likely provided by the ProfileAnalyzer) and a specified target job role. "
+       "Use the search tool to find standard job descriptions, required skills, and industry expectations for the target role. "
+       "Compare the profile data against these standards. "
+       "Provide a detailed analysis including: "
+       "1. A qualitative assessment of the fit (e.g., Strong Match, Good Match, Needs Improvement). "
+       "2. Identification of key skill gaps. "
+       "3. Suggestions for specific improvements to the profile or skills needed to bridge the gap. "
+       "4. Consider the user's current experience level when providing feedback and suggesting career steps. "
+       "If profile data is missing or insufficient in the conversation history, state that you cannot perform the analysis."
+    )
+    agent_executor = create_react_agent(llm, job_fit_tools, messages_modifier=system_prompt)
+    return agent_executor
 
-        if not profile_data or not target_role:
-            return {"messages": [{"role": "system", "content": "Missing profile data or target role."}]}
-                    
-        job_description_search = basic_search_tool.invoke(f"{target_role} job description industry standards")
+def job_fit_node(state: AgentState, agent: callable, name: str):
+    """Node function to execute the job fit agent."""
+    print(f"--- Executing {name} ---")
+    # Check if profile data exists from previous step before invoking
+    # Though the agent prompt handles this, adding a check here might be redundant but safer
+    # if not state.get('profile_data'):
+    #     # This shouldn't happen if the supervisor routes correctly, but as a fallback
+    #     return {"messages": [("system", f"Error in {name}: Profile data not found in state.")]}
 
-        system_prompt = make_system_prompt(
-            """<goal>Compare and contrast the LinkedIn profile of a with the target job role</goal>
-            <tasks>
-            - generate a match score out of 10 
-            - identify skill gaps the user and suggest specific improvements
-            - response should be in depth focusing on various aspects of the career
-            - take into account the current experience level when analysing 
-            - include a potential career trajectory with your reposne 
-            eg. target: Tech Lead 
-            and if user is still a student, then suggest every step in middle ie SDE-1 to SDE 5, then gaining expertice in technical project management, going niche at current role, this will also require no job hopping etc.  
-            </tasks>
-
-            Note: be detailed
-
-            output: 
-
-            class JobFit: 
-                feedback: str 
-            
-            return:  JobFit
-            """
-        )
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Profile Data: {profile_data}\nTarget Role: {target_role}\nJob Description Search: {job_description_search}"}
-        ]
-        
-        job_fit_analysis = model.invoke(messages)
-        
-        return {
-            "messages": [{"role": "assistant", "content": job_fit_analysis.content}]
-        }
-    
-    return job_fit_node
-
-
-job_fit_agent = create_job_fit_agent()
-
-        
+    result = agent.invoke(state)
+    return {"messages": result["messages"]}

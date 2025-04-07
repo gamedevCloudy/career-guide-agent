@@ -1,8 +1,8 @@
 from langchain_google_vertexai import ChatVertexAI
 from langchain_core.tools import tool 
 from langgraph.prebuilt import create_react_agent
-from agents.utils import scrape_linkedin_profile, google_search_tool
-from agents.utils import State, make_system_prompt
+from tools import scrape_linkedin_profile, basic_search_tool
+from utils import State, make_system_prompt
 
 from pydantic import BaseModel, Field
 

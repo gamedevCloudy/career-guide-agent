@@ -30,7 +30,7 @@ apify = ApifyWrapper(apify_api_token=APIFY_TOKEN)
 
 
 basic_search_tool = DuckDuckGoSearchRun()
-google_serach_tool = GoogleSearchRun()
+# google_serach_tool = GoogleSearchRun()
 
 @tool
 def python_repl_tool(
@@ -101,7 +101,6 @@ def scrape_linkedin_profile(profile_url: str) -> dict:
 __all__ = [
     'python_repl_tool', 
     'scrape_linkedin_profile', 
-    'basic_search_tool', 
-    'google_serach_tool'
+    'basic_search_tool'
 ]
 

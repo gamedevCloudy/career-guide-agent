@@ -8,6 +8,7 @@ from typing_extensions import TypedDict
 from langgraph.graph.message import add_messages
 from langchain_core.documents import Document
 from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.memory import MemorySaver
 
 
 load_dotenv()
@@ -23,13 +24,14 @@ class State(TypedDict):
 
 def create_sqlite_memory():
     try:
-        conn = sqlite3.connect(DATABASE_URI.replace('sqlite:///', ''))
+        conn = sqlite3.connect(DATABASE_URI)
         return SqliteSaver(conn=conn)
     except Exception as e:
         print(f"Error creating SQLite memory: {e}")
         return None
 
-memory = create_sqlite_memory()
+# memory = create_sqlite_memory()
+memory = MemorySaver()
 
 def make_system_prompt(suffix: str) -> str:
     base_prompt=  (

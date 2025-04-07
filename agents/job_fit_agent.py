@@ -1,8 +1,8 @@
 from langchain_google_vertexai import ChatVertexAI
 from langchain_core.tools import tool 
 from langgraph.prebuilt import create_react_agent
-from agents.tools import google_serach_tool
-from agents.utils import State, make_system_prompt
+from tools import basic_search_tool
+from utils import State, make_system_prompt
 
 def create_job_fit_agent(): 
     model = ChatVertexAI(model_name="gemini-2.0-flash-001")
@@ -18,7 +18,7 @@ def create_job_fit_agent():
         if not profile_data or not target_role:
             return {"messages": [{"role": "system", "content": "Missing profile data or target role."}]}
                     
-        job_description_search = google_serach_tool.invoke(f"{target_role} job description industry standards")
+        job_description_search = basic_search_tool.invoke(f"{target_role} job description industry standards")
 
         system_prompt = make_system_prompt(
             """<goal>Compare and contrast the LinkedIn profile of a with the target job role</goal>

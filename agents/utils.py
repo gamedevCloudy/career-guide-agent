@@ -19,6 +19,7 @@ class State(TypedDict):
     name: str
     profile_url: str
     profile_data: Document
+    target_role: str
 
 def create_sqlite_memory():
     try:

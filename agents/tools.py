@@ -6,6 +6,8 @@ from typing import Annotated
 
 
 from langchain_community.tools.ddg_search import DuckDuckGoSearchRun
+from langchain_google_community import GoogleSearchRun
+
 from langchain_core.tools import tool
 from langchain_experimental.utilities import PythonREPL
 
@@ -27,7 +29,8 @@ repl = PythonREPL()
 apify = ApifyWrapper(apify_api_token=APIFY_TOKEN)
 
 
-search_tool = DuckDuckGoSearchRun()
+basic_search_tool = DuckDuckGoSearchRun()
+google_serach_tool = GoogleSearchRun()
 
 @tool
 def python_repl_tool(
@@ -98,6 +101,7 @@ def scrape_linkedin_profile(profile_url: str) -> dict:
 __all__ = [
     'python_repl_tool', 
     'scrape_linkedin_profile', 
-    'search_tool'
+    'basic_search_tool', 
+    'google_serach_tool'
 ]
 

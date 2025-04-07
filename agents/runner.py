@@ -8,6 +8,7 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_google_vertexai import ChatVertexAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.output_parsers import StrOutputParser
 
 from .utils import AgentState, memory, SUPERVISOR_SYSTEM_PROMPT, AgentName
 from .tools import all_tools # Import the list of all tools
@@ -35,11 +36,11 @@ def create_agent_supervisor(llm: ChatVertexAI, system_prompt: str, agent_names: 
         MessagesPlaceholder(variable_name="messages"),
         ("system", f"Given the conversation history, who should act next? Or should we FINISH? Select one of: {', '.join(agent_names + ['FINISH'])}")
     ])
-    return prompt | llm
+    return prompt | llm | StrOutputParser()
 
 def create_career_optimization_graph():
     """Creates the agentic graph with a supervisor."""
-    llm = ChatVertexAI(model="gemini-1.5-flash-001") # Using a capable model for supervisor
+    llm = ChatVertexAI(model="gemini-2.0-flash-001") # Using a capable model for supervisor
 
     # Create Agent Executors
     profile_agent = create_profile_analysis_agent(llm)
@@ -150,7 +151,7 @@ def main():
     # Example usage
     profile_url = "https://www.linkedin.com/in/aayush-chaudhary-2b7b99208/" # Replace with a valid test profile if needed
     target_role = "AI Research Engineer"
-    thread_id = 2 # Use a different ID for a new conversation
+    thread_id = 1 # Use a different ID for a new conversation
 
     final_state = run_career_optimization(profile_url, target_role, thread_id=thread_id)
 

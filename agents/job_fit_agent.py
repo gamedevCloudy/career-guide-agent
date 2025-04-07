@@ -2,6 +2,7 @@
 from langchain_google_vertexai import ChatVertexAI
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.prebuilt import create_react_agent
+from langchain_core.messages import SystemMessage
 
 from .tools import basic_search_tool # Only needs search
 from .utils import make_agent_system_prompt, AgentState
@@ -22,7 +23,10 @@ def create_job_fit_agent(llm: ChatVertexAI):
        "4. Consider the user's current experience level when providing feedback and suggesting career steps. "
        "If profile data is missing or insufficient in the conversation history, state that you cannot perform the analysis."
     )
-    agent_executor = create_react_agent(llm, job_fit_tools, messages_modifier=system_prompt)
+
+    llm_with_system_prompt = llm.bind(system_message=SystemMessage(content=system_prompt))
+    
+    agent_executor = create_react_agent(llm_with_system_prompt, job_fit_tools)
     return agent_executor
 
 def job_fit_node(state: AgentState, agent: callable, name: str):

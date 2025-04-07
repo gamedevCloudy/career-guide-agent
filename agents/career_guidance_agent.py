@@ -2,7 +2,7 @@
 from langchain_google_vertexai import ChatVertexAI
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.prebuilt import create_react_agent
-
+from langchain_core.messages import SystemMessage
 from .tools import basic_search_tool # Only needs search
 from .utils import make_agent_system_prompt, AgentState
 
@@ -20,7 +20,8 @@ def create_career_guidance_agent(llm: ChatVertexAI):
         "3. Recommend specific learning resources. "
         "If prior analysis (profile, job fit) is missing or insufficient in the conversation history, state that you cannot provide full guidance."
     )
-    agent_executor = create_react_agent(llm, guidance_tools, messages_modifier=system_prompt)
+    llm_with_sys_prompt = llm.bind(system_message=SystemMessage(content=system_prompt))
+    agent_executor = create_react_agent(llm_with_sys_prompt, guidance_tools)
     return agent_executor
 
 def career_guidance_node(state: AgentState, agent: callable, name: str):

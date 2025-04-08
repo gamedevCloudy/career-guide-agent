@@ -126,25 +126,16 @@ def make_supervisor_node(llm: BaseChatModel, members: list[str], counceller_name
         print(f"Input Last Message ({type(last_message).__name__}): {last_message.content}")
 
         # Prepare messages for the LLM
-        messages_for_llm = [
+        messages = [
             {"role": "system", "content": system_prompt},
         ] + state["messages"] # Pass the actual message objects
 
-        # Invoke LLM with structured output
-        try:
-            response = llm.with_structured_output(Router).invoke(messages_for_llm)
-            goto = response["next"]
-            print(f"Supervisor Decision: Route to {goto}")
+        response = llm.with_structured_output(Router).invoke(messages)
+        goto = response["next"]
+        # if goto == "FINISH":
+        #     goto = END
 
-            # Update the state with the decision for conditional edges
-            return Command(goto=goto, update={"next": goto})
-
-        except Exception as e:
-            print(f"Error in Supervisor LLM call: {e}")
-            # Fallback or error handling: maybe route to Counceller by default?
-            print(f"Supervisor Fallback: Routing to {counceller_name}")
-            return Command(goto=counceller_name, update={"next": counceller_name})
-
+        return Command(goto=goto, update={"next": goto})
 
     return supervisor_node
 
@@ -153,8 +144,8 @@ def create_career_optimization_graph():
     llm = ChatVertexAI(model="gemini-2.0-flash-001")
 
     # Create nodes
-    counceller_node = make_conversation_node(llm=llm, members=members)
-    supervisor_node = make_supervisor_node(llm=llm, members=members)
+    counceller_node = make_conversation_node(llm=llm, members=[SUPERVISOR])
+    supervisor_node = make_supervisor_node(llm=llm, members=members, counceller_name=COUNCELLER)
     
     # Define the graph
     workflow = StateGraph(AgentState)
@@ -166,31 +157,10 @@ def create_career_optimization_graph():
     workflow.add_node(JOB_FIT_ANALYZER, job_fit_node)
     workflow.add_node(CAREER_ADVISOR, career_guidance_node)
 
-    # Define the workflow edges
+
     # Start with Counceller
     workflow.add_edge(START, COUNCELLER)
 
-    # Counceller can go to Supervisor or End
-    workflow.add_conditional_edges(
-        COUNCELLER, 
-        lambda state: state.get("next", "FINISH"),
-        {
-            "Supervisor": SUPERVISOR,
-            "FINISH": END
-        }
-    )
-
-    # Supervisor can route to specific agents
-    workflow.add_conditional_edges(
-        SUPERVISOR, 
-        lambda state: state.get("next", "FINISH"),
-        {
-            PROFILE_ANALYZER: PROFILE_ANALYZER,
-            JOB_FIT_ANALYZER: JOB_FIT_ANALYZER,
-            CAREER_ADVISOR: CAREER_ADVISOR,
-            "FINISH": END
-        }
-    )
 
     # Agents must route back to Supervisor
     workflow.add_edge(PROFILE_ANALYZER, SUPERVISOR)
@@ -203,10 +173,12 @@ def create_career_optimization_graph():
     # Compile the graph
     graph = workflow.compile(checkpointer=memory)
     
-    
-    png_image = graph.get_graph().draw_mermaid_png()
-    with open("career_optimization_graph.png", "wb") as f:
-        f.write(png_image)
+    try: 
+        png_image = graph.get_graph().draw_mermaid_png()
+        with open("career_optimization_graph.png", "wb") as f:
+            f.write(png_image)
+    except Exception as e: 
+        print(str(e))
     
     return graph
 
@@ -232,7 +204,6 @@ def run_career_optimization(profile_url: str, target_role: str, thread_id: int =
     # Initial state - supervisor will read this first
     initial_state = AgentState(
         messages=[initial_message],
-        apify_api_token=os.environ['APIFY_API_KEY'],
         profile_data=None,
         next_agent=None # Supervisor decides first step
     )

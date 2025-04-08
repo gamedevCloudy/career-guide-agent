@@ -28,3 +28,9 @@ Utility:
 
 - Cookie Editor - Chrome Extension - Export LinkedIn Cookie as JSON
 - [JSON to one-line](https://jsonformatter.net/json-to-one-line/)
+
+---
+
+Flow:
+
+![Image](assets/career_optimization_graph.png)

@@ -232,39 +232,6 @@ def run_career_optimization(profile_url: str, target_role: str, thread_id: int =
     return final_state
 
 
-def run_career_conversation_step(user_input: str, thread_id: str):
-    graph = create_career_optimization_graph()
-
-    # Pull conversation state from memory if it exists
-    config = {'configurable': {'thread_id': thread_id}}
-    
-    try:
-        # Attempt to get existing state
-        current_state = graph.get_state(config)
-        
-        # Add new user message to existing messages
-        current_state.values['messages'].append(HumanMessage(content=user_input))
-    except Exception:
-        # If no existing state, create initial state with system and user message
-        current_state = AgentState(
-            messages=[
-                HumanMessage(content=user_input)
-            ],
-            profile_data=None,
-            next_agent=None
-        )
-
-    # Stream the graph and process the entire conversation
-    final_state = None
-    for event in graph.stream(current_state, config=config):
-        final_state = event
-
-    # Retrieve the last AI message
-    for msg in reversed(graph.get_state(config).values['messages']):
-        if isinstance(msg, AIMessage):
-            return msg.content
-
-    return "I'm ready to help you with your career goals. Could you provide more details?"
 
 
 

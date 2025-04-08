@@ -4,10 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Career Guidance Assistant</title>
-    <!-- Tailwind CSS from CDN -->
+
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- HTMX from CDN -->
-    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <!-- Highlight.js for code syntax highlighting -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- Add specific languages you need -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="/static/css/styles.css" />
     <style>
       /* Custom scrollbar for the chat container */
       .chat-container::-webkit-scrollbar {
@@ -39,6 +48,85 @@
       .agent-system {
         background-color: #fafafa;
       }
+
+      /* Markdown styling */
+      .markdown-content h1 {
+        font-size: 1.8rem;
+        font-weight: bold;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+      }
+      .markdown-content h2 {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+      }
+      .markdown-content h3 {
+        font-size: 1.3rem;
+        font-weight: bold;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+      }
+      .markdown-content h4 {
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+      }
+      .markdown-content p {
+        margin-bottom: 0.75rem;
+      }
+      .markdown-content ul {
+        list-style-type: disc;
+        margin-left: 1.5rem;
+        margin-bottom: 0.75rem;
+      }
+      .markdown-content ol {
+        list-style-type: decimal;
+        margin-left: 1.5rem;
+        margin-bottom: 0.75rem;
+      }
+      .markdown-content li {
+        margin-bottom: 0.25rem;
+      }
+      .markdown-content a {
+        color: #2563eb;
+        text-decoration: underline;
+      }
+      .markdown-content blockquote {
+        border-left: 4px solid #e5e7eb;
+        padding-left: 1rem;
+        font-style: italic;
+        margin: 1rem 0;
+      }
+      .markdown-content table {
+        border-collapse: collapse;
+        margin: 1rem 0;
+      }
+      .markdown-content th,
+      .markdown-content td {
+        border: 1px solid #e5e7eb;
+        padding: 0.5rem;
+      }
+      .markdown-content pre {
+        background-color: #f3f4f6;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        overflow-x: auto;
+        margin: 1rem 0;
+      }
+      .markdown-content code {
+        font-family: monospace;
+        background-color: #f3f4f6;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
+        font-size: 0.9rem;
+      }
+      .markdown-content pre code {
+        padding: 0;
+        background-color: transparent;
+      }
     </style>
   </head>
   <body class="bg-gray-100 h-screen flex flex-col">
@@ -56,25 +144,22 @@
         id="chat-container"
         class="chat-container flex-1 overflow-y-auto bg-white rounded-lg shadow-md p-4 mb-4 flex flex-col"
       >
-        <!-- Welcome message will appear here -->
+        <!-- Messages will appear here -->
         <div id="messages" class="space-y-4">
           <div class="agent-ria p-4 rounded-lg shadow-sm max-w-[80%]">
             <div class="font-semibold text-sm text-blue-700 mb-1">Ria</div>
-            <p>
-              Hello! I'm Ria, your career guidance assistant. I can help analyze
-              your LinkedIn profile and provide career advice. What's your name?
-            </p>
+            <div class="markdown-content">
+              <p>
+                Hello! I'm Ria, your career guidance assistant. I can help
+                analyze your LinkedIn profile and provide career advice. What's
+                your name?
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
-      <form
-        id="chat-form"
-        class="flex gap-2"
-        hx-post="/api/chat"
-        hx-trigger="submit"
-        hx-indicator="#loading-indicator"
-      >
+      <form id="chat-form" class="flex gap-2">
         <input
           type="text"
           name="message"
@@ -102,10 +187,7 @@
           </svg>
         </button>
       </form>
-      <div
-        id="loading-indicator"
-        class="htmx-indicator text-center text-gray-600 py-2"
-      >
+      <div id="loading-indicator" class="hidden text-center text-gray-600 py-2">
         <svg
           class="animate-spin h-5 w-5 inline mr-2"
           xmlns="http://www.w3.org/2000/svg"
@@ -132,62 +214,120 @@
 
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-        // Make sure we start at the bottom of the chat
+        const messagesContainer = document.getElementById("messages");
         const chatContainer = document.getElementById("chat-container");
+        const chatForm = document.getElementById("chat-form");
+        const messageInput = document.getElementById("message-input");
+        const loadingIndicator = document.getElementById("loading-indicator");
+
+        // Initialize syntax highlighting
+        hljs.highlightAll();
+
+        // Scroll to bottom initially
         chatContainer.scrollTop = chatContainer.scrollHeight;
 
-        // Add event listener for the form submission
-        document
-          .getElementById("chat-form")
-          .addEventListener("submit", function (e) {
-            // Create and add user message to the chat
-            const userMessage = document.createElement("div");
-            userMessage.className =
-              "bg-blue-100 p-4 rounded-lg shadow-sm max-w-[80%] self-end";
-            userMessage.innerHTML = `
+        // Handle form submission
+        chatForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const message = messageInput.value.trim();
+          if (!message) return;
+
+          // Add user message to the chat
+          const userMessage = document.createElement("div");
+          userMessage.className =
+            "bg-blue-100 p-4 rounded-lg shadow-sm max-w-[80%] self-end";
+          userMessage.innerHTML = `
                     <div class="font-semibold text-sm text-blue-700 mb-1">You</div>
-                    <p>${document.getElementById("message-input").value}</p>
+                    <div class="markdown-content">
+                        <p>${escapeHtml(message)}</p>
+                    </div>
                 `;
-            document.getElementById("messages").appendChild(userMessage);
+          messagesContainer.appendChild(userMessage);
 
-            // Scroll to bottom after adding message
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-          });
-      });
+          // Scroll to bottom
+          chatContainer.scrollTop = chatContainer.scrollHeight;
 
-      // Handle HTMX response
-      document.body.addEventListener("htmx:afterRequest", function (event) {
-        if (event.detail.successful) {
-          try {
-            // Parse the response
-            const response = JSON.parse(event.detail.xhr.responseText);
+          // Clear the input
+          messageInput.value = "";
 
-            // Get agent name (lowercase for CSS class)
-            const agentName = response.name
-              ? response.name.toLowerCase()
-              : "system";
-            const displayName = response.name || "Assistant";
+          // Show loading indicator
+          loadingIndicator.classList.remove("hidden");
 
-            // Create the message element
-            const messageEl = document.createElement("div");
-            messageEl.className = `agent-${agentName} p-4 rounded-lg shadow-sm max-w-[80%]`;
-            messageEl.innerHTML = `
-                        <div class="font-semibold text-sm text-blue-700 mb-1">${displayName}</div>
-                        <p>${response.content}</p>
+          // Send the message to the server
+          fetch("/api/chat", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: `message=${encodeURIComponent(message)}`,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              // Hide loading indicator
+              loadingIndicator.classList.add("hidden");
+
+              // Get agent name (lowercase for CSS class)
+              const agentName = data.name ? data.name.toLowerCase() : "system";
+              const displayName = data.name || "Assistant";
+
+              // Create the message element
+              const botMessage = document.createElement("div");
+              botMessage.className = `agent-${agentName} p-4 rounded-lg shadow-sm max-w-[80%]`;
+              botMessage.innerHTML = `
+                        <div class="font-semibold text-sm text-blue-700 mb-1">${escapeHtml(
+                          displayName
+                        )}</div>
+                        <div class="markdown-content">
+                            ${
+                              data.content_html ||
+                              `<p>${escapeHtml(data.content)}</p>`
+                            }
+                        </div>
                     `;
 
-            // Add message to the chat
-            document.getElementById("messages").appendChild(messageEl);
+              // Add message to the chat
+              messagesContainer.appendChild(botMessage);
 
-            // Clear input field
-            document.getElementById("message-input").value = "";
+              // Apply syntax highlighting to code blocks
+              const codeBlocks = botMessage.querySelectorAll("pre code");
+              codeBlocks.forEach((block) => {
+                hljs.highlightElement(block);
+              });
 
-            // Scroll to bottom
-            const chatContainer = document.getElementById("chat-container");
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-          } catch (e) {
-            console.error("Error processing response:", e);
-          }
+              // Scroll to bottom
+              chatContainer.scrollTop = chatContainer.scrollHeight;
+            })
+            .catch((error) => {
+              // Hide loading indicator
+              loadingIndicator.classList.add("hidden");
+
+              console.error("Error:", error);
+
+              // Show error message
+              const errorMessage = document.createElement("div");
+              errorMessage.className =
+                "agent-system p-4 rounded-lg shadow-sm max-w-[80%]";
+              errorMessage.innerHTML = `
+                        <div class="font-semibold text-sm text-red-700 mb-1">System</div>
+                        <div class="markdown-content">
+                            <p>Sorry, there was an error processing your request. Please try again.</p>
+                        </div>
+                    `;
+
+              messagesContainer.appendChild(errorMessage);
+              chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+        });
+
+        // Helper function to escape HTML
+        function escapeHtml(unsafe) {
+          return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
         }
       });
     </script>

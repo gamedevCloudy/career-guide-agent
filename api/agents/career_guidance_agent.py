@@ -29,14 +29,29 @@ system_prompt = make_agent_system_prompt(
 career_guidance_agent  = create_react_agent(llm, tools=guidance_tools, prompt=system_prompt)
 
 def career_guidance_node(state: AgentState) -> Command[Literal['Supervisor']]: 
+    if state.get("career_guidance_complete"):
+        # Skip re-analysis if already done
+        return Command(
+            update={
+                "messages": [
+                    AIMessage(content="Career Guidance already completed.", name="CareerAdvisor")
+                ],
+                "career_guidance_complete": True
+            },
+            goto="Supervisor"
+        )
+    
+    
     result = career_guidance_agent.invoke(state)
     print(result)
     return Command(
         update={
             "messages": [
                 AIMessage(content=result["messages"][-1].content, name="CareerAdvisor")
-            ]
+            ], 
+            'career_guidance_complete': True
         },
+        
         # We want our workers to ALWAYS "report back" to the supervisor when done
         goto="Supervisor",
     )

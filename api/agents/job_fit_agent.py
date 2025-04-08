@@ -36,17 +36,29 @@ job_fit_agent = create_react_agent(llm, tools=job_fit_tools, prompt=system_promp
 
 
 def job_fit_node(state: AgentState) -> Command[Literal['Supervisor']]: 
+    if state.get("job_fit_complete"):
+        # Skip re-analysis if already done
+        return Command(
+            update={
+                "messages": [
+                    AIMessage(content="Job fit analysis already completed.", name="JobFitAnalyzer")
+                ],
+                "job_fit_complete": True
+            },
+            goto="Supervisor"
+        )
+    
+    
     result = job_fit_agent.invoke(state)
     print(result)
     return Command(
-         
         update={
             "messages": [
                 AIMessage(content=result["messages"][-1].content, name="JobFitAnalyzer")
-            ]
+            ],
+            "job_fit_complete": True  # Mark as completed
         },
-        # We want our workers to ALWAYS "report back" to the supervisor when done
-        goto="Supervisor",
+        goto="Supervisor"
     )
     
 

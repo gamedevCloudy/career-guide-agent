@@ -58,7 +58,9 @@ def make_conversation_node(llm: BaseChatModel) -> callable:
     - friendly and human like 
     - should be hopeful and try to help client most 
     </tone>
-
+    <check>
+        Check state, once you have the analysis details repsonsd back, "I am ready to guide you now. Please ask"
+    </check>
     <tips>
     - go in depth
     - do not be generic, be specific and provide correct guidance. 
@@ -91,14 +93,13 @@ def make_supervisor_node(llm: BaseChatModel, worker_members: list[str]) -> calla
 
     system_prompt = (
         f"You are a supervisor managing a conversation between a counselor and specialized workers.\n\n"
+        f"IMPORTANT: DO NOT route to the same worker multiple times in a row unless the user explicitly asks for it.\n\n"
         f"Available workers: {', '.join(worker_members)}\n\n"
-        f"TASK: Given the conversation history, decide which agent should process the next action.\n\n"
         f"INSTRUCTIONS:\n"
-        f"1. If you see a request for LinkedIn profile analysis, route to {PROFILE_ANALYZER}\n"
-        f"2. If profile analysis is done and there's a request for job fit assessment, route to {JOB_FIT_ANALYZER}\n"
-        f"3. If profile and job fit analysis are done and career guidance is needed, route to {CAREER_ADVISOR}\n"
-        f"4. If all specialized analyses are complete or for general conversation, route to {COUNCELLER}\n\n"
-        f"RESPONSE FORMAT: Choose only ONE of these options: {', '.join(options)}"
+        f"1. If profile analysis hasn't been done and user needs LinkedIn profile analysis, route to {PROFILE_ANALYZER}\n"
+        f"2. If profile analysis is done but job fit analysis hasn't been done, route to {JOB_FIT_ANALYZER}\n"
+        f"3. If both profile and job fit analyses are done but career guidance hasn't been provided, route to {CAREER_ADVISOR}\n"
+        f"4. If all analyses are complete or for general conversation, route to {COUNCELLER}\n\n"
     )
 
     class Router(TypedDict):
@@ -154,8 +155,16 @@ def create_career_optimization_graph():
     
     # Define conditional edges from the supervisor
     def route_from_supervisor(state):
-        return state["next"]
-    
+        next_agent = state.get("next")
+        
+        # Add safety check to prevent loops
+        last_agents = [msg.name for msg in state["messages"][-3:] if hasattr(msg, "name")]
+        if next_agent in last_agents and last_agents.count(next_agent) >= 2:
+            # If same agent appears multiple times recently, route to Counceller instead
+            print(f"Loop detected with {next_agent}, routing to Counceller instead")
+            return SUPERVISOR
+            
+        return next_agent
     # Supervisor routes to appropriate agent based on decision
     workflow.add_conditional_edges(
         SUPERVISOR,

@@ -8,6 +8,8 @@ from typing import Optional, List, Dict, Any
 import os
 import json
 from pathlib import Path
+import markdown
+import re
 
 # Import your agent functions
 from api.agents.runner import chat_with_agent
@@ -26,13 +28,37 @@ class ChatMessage(BaseModel):
     content: str
     name: Optional[str] = None
 
+def convert_markdown_to_html(content: str) -> str:
+    """Convert markdown content to HTML with syntax highlighting."""
+    # Process code blocks first to preserve formatting
+    # This regex finds code blocks with optional language specification
+    code_block_pattern = r'```(\w*)\n([\s\S]*?)\n```'
+    
+    def code_replacer(match):
+        language = match.group(1) or ''
+        code = match.group(2)
+        
+        # Create HTML with proper classes for highlighting
+        return f'<pre><code class="language-{language}">{code}</code></pre>'
+    
+    # Replace code blocks with HTML
+    content_with_code_html = re.sub(code_block_pattern, code_replacer, content)
+    
+    # Convert the rest of the markdown to HTML
+    html_content = markdown.markdown(
+        content_with_code_html,
+        extensions=['extra', 'nl2br', 'sane_lists', 'tables']
+    )
+    
+    return html_content
+
 @app.get("/", response_class=HTMLResponse)
 async def get_chat_page(request: Request, thread_id: Optional[str] = Cookie(None)):
     """Render the chat interface."""
     # Generate a new thread_id if none exists
     if not thread_id:
         thread_id = str(uuid.uuid4())
-    
+        
     return templates.TemplateResponse(
         "index.html", 
         {"request": request, "thread_id": thread_id}
@@ -65,9 +91,13 @@ async def process_chat(
             # Get the most recent assistant message
             last_message = assistant_messages[-1]
             
+            # Convert markdown content to HTML
+            content_html = convert_markdown_to_html(last_message.content)
+            
             # Prepare the response
             response_data = {
                 "content": last_message.content,
+                "content_html": content_html,
                 "name": getattr(last_message, "name", "Assistant")
             }
             
@@ -76,7 +106,11 @@ async def process_chat(
         else:
             # Fallback if no assistant message found
             return JSONResponse(
-                content={"content": "I'm processing your request...", "name": "System"}
+                content={
+                    "content": "I'm processing your request...",
+                    "content_html": "<p>I'm processing your request...</p>",
+                    "name": "System"
+                }
             )
             
     except Exception as e:
@@ -84,7 +118,11 @@ async def process_chat(
         print(f"Error processing message: {str(e)}")
         print(traceback.format_exc())
         return JSONResponse(
-            content={"content": f"Sorry, I encountered an error: {str(e)}", "name": "System"},
+            content={
+                "content": f"Sorry, I encountered an error: {str(e)}",
+                "content_html": f"<p>Sorry, I encountered an error: {str(e)}</p>",
+                "name": "System"
+            },
             status_code=500
         )
 
@@ -105,9 +143,13 @@ async def get_conversation(thread_id: Optional[str] = Cookie(None)):
         # Convert messages to a serializable format
         messages = []
         for msg in state.get("messages", []):
+            content = msg.content
+            content_html = convert_markdown_to_html(content)
+            
             message_data = {
                 "role": "user" if hasattr(msg, "type") and msg.type == "human" else "assistant",
-                "content": msg.content
+                "content": content,
+                "content_html": content_html
             }
             
             if hasattr(msg, "name") and msg.name:

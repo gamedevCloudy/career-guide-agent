@@ -23,6 +23,9 @@ class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
     profile_data: Optional[List[Document]]
     next: Optional[Union[AgentName, str]]
+    profile_analysis_complete: Optional[bool]
+    job_fit_complete: Optional[bool]
+    career_guidance_complete: Optional[bool]
 
 def create_sqlite_memory():
     """Creates a SQLite-based checkpoint saver."""

@@ -5,8 +5,8 @@ from langchain_core.messages import AIMessage
 
 from langgraph.prebuilt import create_react_agent
 
-from agents.tools import basic_search_tool # Only needs search
-from agents.utils import make_agent_system_prompt, AgentState
+from api.agents.tools import basic_search_tool # Only needs search
+from api.agents.utils import make_agent_system_prompt, AgentState
 
 from typing import Literal
 from langgraph.types import Command

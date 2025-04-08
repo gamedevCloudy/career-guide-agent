@@ -8,8 +8,8 @@ from typing import List, Optional, Literal
 from langgraph.types import Command
 
 
-from agents.tools import scrape_linkedin_profile, basic_search_tool
-from agents.utils import make_agent_system_prompt, AgentState
+from api.agents.tools import scrape_linkedin_profile, basic_search_tool
+from api.agents.utils import make_agent_system_prompt, AgentState
 
 # Tools specific to this agent
 profile_tools = [scrape_linkedin_profile, basic_search_tool]

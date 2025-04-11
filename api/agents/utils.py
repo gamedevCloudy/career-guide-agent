@@ -15,10 +15,6 @@ load_dotenv()
 
 DATABASE_URI = os.getenv('DATABASE_URI', 'agent_checkpoint.sqlite')
 
-class SupervisorState(TypedDict):
-    messages: List[dict]
-    current_step: str
-    steps_taken: int
 
 def create_sqlite_memory():
     """Creates a SQLite-based checkpoint saver."""

@@ -5,8 +5,8 @@ from langchain_core.messages import AIMessage
 
 from langgraph.prebuilt import create_react_agent
 
-from api.agents.tools import basic_search_tool # Only needs search
-from api.agents.utils import make_agent_system_prompt, AgentState
+from agents.tools import basic_search_tool # Only needs search
+from agents.utils import make_agent_system_prompt, SupervisorState
 
 from typing import Literal
 from langgraph.types import Command
@@ -28,34 +28,17 @@ system_prompt = make_agent_system_prompt(
 
 career_guidance_agent  = create_react_agent(llm, tools=guidance_tools, prompt=system_prompt)
 
-def career_guidance_node(state: AgentState) -> Command[Literal['Supervisor']]: 
-    if state.get("career_guidance_complete"):
-        # Skip re-analysis if already done
-        return Command(
-            update={
-                "messages": [
-                    AIMessage(content="Career Guidance already completed.", name="CareerAdvisor")
-                ],
-                "career_guidance_complete": True
-            },
-            goto="Supervisor"
-        )
-    
-    
+def career_guidance_node(state: SupervisorState) -> Command[Literal['Supervisor']]: 
     result = career_guidance_agent.invoke(state)
-    print(result)
+    
     return Command(
         update={
-            "messages": [
-                AIMessage(content=result["messages"][-1].content, name="CareerAdvisor")
-            ], 
-            'career_guidance_complete': True
+            "messages": result["messages"],
         },
-        
-        # We want our workers to ALWAYS "report back" to the supervisor when done
-        goto="Supervisor",
+        goto="Supervisor"
     )
 
+
 __all__ = [
-    'guidance_node'
+    'career_guidance_node'
 ]

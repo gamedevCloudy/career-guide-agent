@@ -2,7 +2,7 @@
 import os
 import sqlite3
 from dotenv import load_dotenv
-from typing import Annotated, List, Optional, Literal, Union
+from typing import Annotated, List, Optional, Union
 
 from typing_extensions import TypedDict
 
@@ -15,17 +15,10 @@ load_dotenv()
 
 DATABASE_URI = os.getenv('DATABASE_URI', 'agent_checkpoint.sqlite')
 
-# Define Agent names for routing
-AgentName = Literal["ProfileAnalyzer", "JobFitAnalyzer", "CareerAdvisor", "Counceller", "Supervisor"]
-
-class AgentState(TypedDict):
-    """State for the career optimization agent workflow."""
-    messages: Annotated[list, add_messages]
-    profile_data: Optional[List[Document]]
-    next: Optional[Union[AgentName, str]]
-    profile_analysis_complete: Optional[bool]
-    job_fit_complete: Optional[bool]
-    career_guidance_complete: Optional[bool]
+class SupervisorState(TypedDict):
+    messages: List[dict]
+    current_step: str
+    steps_taken: int
 
 def create_sqlite_memory():
     """Creates a SQLite-based checkpoint saver."""
@@ -43,17 +36,6 @@ def create_sqlite_memory():
 
 # Using MemorySaver for development - switch to SQLite for production
 memory = MemorySaver()
-
-# System prompt for the supervisor
-SUPERVISOR_SYSTEM_PROMPT = (
-    "You are a supervisor tasked with managing a conversation between specialized career guidance agents.\n"
-    "Given the conversation history, determine which agent should act next:\n"
-    "- ProfileAnalyzer: For LinkedIn profile analysis\n"
-    "- JobFitAnalyzer: For assessing job fit after profile analysis\n"
-    "- CareerAdvisor: For career guidance after profile and job fit analysis\n"
-    "- Counceller: For general conversation and synthesizing information\n\n"
-    "Route to the appropriate agent based on the conversation context and user needs."
-)
 
 def make_agent_system_prompt(role_description: str) -> str:
     """Creates a standard system prompt for specialized agents."""

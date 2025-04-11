@@ -7,8 +7,8 @@ from langchain_core.messages import  AIMessage
 from typing import List, Optional, Literal
 from langgraph.types import Command
 
-from api.agents.tools import basic_search_tool # Only needs search
-from api.agents.utils import make_agent_system_prompt, AgentState
+from agents.tools import basic_search_tool # Only needs search
+from agents.utils import make_agent_system_prompt, SupervisorState
 
 # Tools specific to this agent
 job_fit_tools = [basic_search_tool]
@@ -35,31 +35,16 @@ job_fit_agent = create_react_agent(llm, tools=job_fit_tools, prompt=system_promp
 
 
 
-def job_fit_node(state: AgentState) -> Command[Literal['Supervisor']]: 
-    if state.get("job_fit_complete"):
-        # Skip re-analysis if already done
-        return Command(
-            update={
-                "messages": [
-                    AIMessage(content="Job fit analysis already completed.", name="JobFitAnalyzer")
-                ],
-                "job_fit_complete": True
-            },
-            goto="Supervisor"
-        )
-    
-    
+def job_fit_node(state: SupervisorState) -> Command[Literal['Supervisor']]: 
     result = job_fit_agent.invoke(state)
-    print(result)
+    
     return Command(
         update={
-            "messages": [
-                AIMessage(content=result["messages"][-1].content, name="JobFitAnalyzer")
-            ],
-            "job_fit_complete": True  # Mark as completed
+            "messages": result["messages"],
         },
         goto="Supervisor"
     )
+
     
 
 __all__ = [

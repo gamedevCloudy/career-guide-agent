@@ -47,7 +47,7 @@ def chat_interface():
             with st.chat_message("assistant"):
                 for step in stream:
                     for node, output in step.items():
-                        if node in ["profile_analysis", "job_fit", "career_guidance"]:
+                        if node in ["profile_analysis", "job_fit", "career_guide"]:
                             # Assuming the last message contains the response
                             response = output.get('messages', [])
                             if response:

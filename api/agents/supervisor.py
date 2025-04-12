@@ -10,7 +10,7 @@ from langgraph.graph import MessagesState
 from agents.profile_analysis_agent import profile_analysis_node
 from agents.job_fit_agent import job_fit_node
 from agents.career_guidance_agent import career_guidance_node
-
+from agents.utils import memory
 # Use the same LLM as your agents for consistency
 llm = ChatVertexAI(model="gemini-2.0-flash-001")
 
@@ -73,4 +73,4 @@ def create_career_graph():
     builder.add_node("profile_analysis", profile_analysis_node)
 
     # Compile the graph
-    return builder.compile() 
+    return builder.compile(checkpointer=memory) 

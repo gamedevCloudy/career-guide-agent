@@ -31,7 +31,7 @@ def create_sqlite_memory():
         return MemorySaver()
 
 # Using MemorySaver for development - switch to SQLite for production
-memory = MemorySaver()
+memory = create_sqlite_memory()
 
 def make_agent_system_prompt(role_description: str) -> str:
     """Creates a standard system prompt for specialized agents."""

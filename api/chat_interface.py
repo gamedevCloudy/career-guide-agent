@@ -2,12 +2,13 @@
 import streamlit as st
 from langgraph.graph import START
 from agents.supervisor import create_career_graph 
+import uuid
 def chat_interface():
     st.title("Career Path Advisor")
     
     # Initialize the graph
     graph = create_career_graph()
-    
+    config = {"configurable": {"thread_id": uuid.uuid4()}}
     with open("assets/graph.png", "wb") as f:
         f.write(graph.get_graph().draw_mermaid_png())
 
@@ -41,7 +42,8 @@ def chat_interface():
         
         # Run the graph
         try:
-            stream = graph.stream(initial_state)
+            
+            stream = graph.stream(initial_state, config)
             
             full_response = ""
             with st.chat_message("assistant"):

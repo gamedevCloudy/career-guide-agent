@@ -26,7 +26,7 @@ profile_tools = [scrape_linkedin_profile, basic_search_tool]
 #         "If scraping fails or no URL is provided in the history, state that you cannot proceed without valid profile data. "
 #     )
 
-system_prompt= make_agent_system_prompt("Your only role is to scrape user's profile and give a SEO and HR optimised profile review You can you basic_search_tool to look up information from the internet regarding the target role ")
+system_prompt= make_agent_system_prompt("Your only role is to scrape user's profile and give a SEO and HR optimised profile review You can you basic_search_tool to look up information from the internet regarding the target role")
 
 llm = ChatVertexAI(model="gemini-2.0-flash")
 

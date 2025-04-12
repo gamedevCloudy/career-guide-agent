@@ -33,4 +33,4 @@ Utility:
 
 Flow:
 
-![Image](assets/career_optimization_graph.png)
+![Image](assets/graph.png)

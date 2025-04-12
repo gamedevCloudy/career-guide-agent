@@ -73,4 +73,4 @@ def create_career_graph():
     builder.add_node("profile_analysis", profile_analysis_node)
 
     # Compile the graph
-    return builder.compile()
+    return builder.compile() 

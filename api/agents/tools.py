@@ -10,6 +10,7 @@ from langchain_community.tools.ddg_search import DuckDuckGoSearchRun
 from langchain_core.tools import tool
 from langchain_experimental.utilities import PythonREPL
 
+from apify_client import ApifyClient
 from langchain_apify import ApifyWrapper
 from langchain_core.documents import Document
 
@@ -46,52 +47,46 @@ def python_repl_tool(
     return f"Successfully executed:\n```python\n{code}\n```\nStdout: {result}"
 
 
+
 @tool
 def scrape_linkedin_profile(profile_url: str) -> List[Document]:
     """
-    Scrapes a LinkedIn profile using the curious_coder/linkedin-profile-scraper Actor on Apify.
+    Scrapes a LinkedIn profile using the 2SyF0bVxmgGr8IVCZ Actor on Apify.
     Only use this tool if you have a valid LinkedIn profile URL starting with 'https://www.linkedin.com/in/'.
     Returns the scraped profile data as a list of Documents.
     """
-    print(f"--- Scraping LinkedIn Profile: {profile_url} ---") # Added print for debugging
+    print(f"--- Scraping LinkedIn Profile: {profile_url} ---")  # Debug print
+
     if not profile_url or not profile_url.startswith('https://www.linkedin.com/in/'):
         return [Document(page_content=f"Error: Invalid LinkedIn profile URL provided: {profile_url}. Must start with 'https://www.linkedin.com/in/'")]
 
-    # Prepare the input for the Actor
-    actor_input = {
-        "urls": [profile_url],
-        "cookie": LINKEDIN_COOKIE, # Ensure this var has the loaded JSON
-        "scrapeCompany": False,
-        "minDelay": 15,
-        "maxDelay": 60,
-        "proxy": {
-            "useApifyProxy": True,
-            "apifyProxyCountry": "US"
-        }
+    client = ApifyClient(APIFY_API_TOKEN)
+
+    run_input = {
+        "profileUrls": [profile_url]
     }
 
-    def map_dataset_item(item):
-        # The item itself is likely a dict, convert it to string for page_content
-        return Document(page_content=json.dumps(item, indent=2), metadata={"source": "LinkedIn", "url": profile_url})
-
     try:
-        # Call actor and get mapped dataset output
-        data_loader = apify.call_actor(
-            actor_id="curious_coder/linkedin-profile-scraper",
-            run_input=actor_input,
-            dataset_mapping_function=map_dataset_item
-        )
-        # Load might return multiple documents if the actor yields multiple items (usually 1 per profile)
-        results = data_loader.load()
-        if not results:
+        run = client.actor("2SyF0bVxmgGr8IVCZ").call(run_input=run_input)
+        dataset_items = client.dataset(run["defaultDatasetId"]).iterate_items()
+
+        documents = []
+        for item in dataset_items:
+            doc = Document(
+                page_content=json.dumps(item, indent=2),
+                metadata={"source": "LinkedIn", "url": profile_url}
+            )
+            documents.append(doc)
+
+        if not documents:
             return [Document(page_content=f"Error: No data returned from LinkedIn scraper for URL: {profile_url}. Check Apify run logs.")]
-        print(f"--- Scraping Successful. Found {len(results)} document(s). ---")
-        return results
+
+        print(f"--- Scraping Successful. Found {len(documents)} document(s). ---")
+        return documents
+
     except Exception as e:
         print(f"--- Scraping Failed: {e} ---")
         return [Document(page_content=f"Error: Failed to scrape LinkedIn profile {profile_url}. Details: {str(e)}")]
-
-
 # expose tools - ensure names match the variables
 # Making a list for easier distribution to agents
 all_tools = [scrape_linkedin_profile, basic_search_tool, python_repl_tool]
